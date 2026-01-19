@@ -1,0 +1,15 @@
+#env
+.env
+
+# Node
+web/node_modules
+web/.output
+web/.nuxt
+
+# Go
+api/bin
+api/tmp
+
+# Data
+data/
+

@@ -1,0 +1,108 @@
+version: "3.9"
+
+networks:
+  happy-net:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  uploads_data:
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    networks: [happy-net]
+    volumes:
+      - mongo_data:/data/db
+    command: ["mongod", "--bind_ip_all"]
+    # No ports exposed (internal only)
+
+  api:
+    build:
+      context: ./api
+    env_file:
+      - .env
+    user: "0:0"
+    restart: unless-stopped
+    networks: [happy-net]
+    environment:
+      APP_ENV: "prod"
+      MONGO_URI: "mongodb://mongo:27017"
+      MONGO_DB: "happy"
+      JWT_SECRET: "${JWT_SECRET:-change-me-super-secret}"
+      COOKIE_DOMAIN: "${COOKIE_DOMAIN:-happy4u.online}"
+      UPLOAD_DIR: "/data/uploads"
+      PUBLISH_TTL: "168h"
+      PRICE_CODE_RUB: "${PRICE_CODE_RUB:-59}"
+      PRICE_SUB_RUB: "${PRICE_SUB_RUB:-99}"
+      PAYMENT_PROVIDER: "${PAYMENT_PROVIDER:-stub}"
+
+      # Admin bootstrap
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@local}"
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin123456}"
+
+      # Robokassa
+      ROBO_MERCHANT_LOGIN: ${ROBO_MERCHANT_LOGIN}
+      ROBO_PASS1: ${ROBO_PASS1}
+      ROBO_PASS2: ${ROBO_PASS2}
+      ROBO_IS_TEST: ${ROBO_IS_TEST}
+      ROBO_PAYMENT_BASE: ${ROBO_PAYMENT_BASE}
+    volumes:
+      - uploads_data:/data/uploads
+    depends_on:
+      - mongo
+    # No ports exposed
+
+  worker:
+    build:
+      context: ./api
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks: [happy-net]
+    command: ["./happy-api", "-mode", "worker"]
+    environment:
+    # Robokassa
+      ROBO_MERCHANT_LOGIN: ${ROBO_MERCHANT_LOGIN}
+      ROBO_PASS1: ${ROBO_PASS1}
+      ROBO_PASS2: ${ROBO_PASS2}
+      ROBO_IS_TEST: ${ROBO_IS_TEST}
+      ROBO_PAYMENT_BASE: ${ROBO_PAYMENT_BASE}
+      APP_ENV: "prod"
+      MONGO_URI: "mongodb://mongo:27017"
+      MONGO_DB: "happy"
+      JWT_SECRET: "${JWT_SECRET:-change-me-super-secret}"
+      UPLOAD_DIR: "/data/uploads"
+      PUBLISH_TTL: "168h"
+
+    volumes:
+      - uploads_data:/data/uploads
+    depends_on:
+      - mongo
+
+  web:
+    build:
+      context: ./web
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks: [happy-net]
+    environment:
+      NUXT_PUBLIC_BASE_DOMAIN: "${BASE_DOMAIN:-happy4u.online}"
+      NUXT_PUBLIC_APP_NAME: "Happy"
+    depends_on:
+      - api
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    networks: [happy-net]
+    ports:
+      - "8088:80" # наружу другой порт, дальше вы проксируете внешним nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - api

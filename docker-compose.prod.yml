@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  api:
+    image: ${CI_REGISTRY_IMAGE:-registry.example.com/group/project}/api:latest
+    build: null
+
+  worker:
+    image: ${CI_REGISTRY_IMAGE:-registry.example.com/group/project}/api:latest
+    build: null
+
+  web:
+    image: ${CI_REGISTRY_IMAGE:-registry.example.com/group/project}/web:latest
+    build: null

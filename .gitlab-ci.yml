@@ -1,0 +1,12 @@
+stages: [deploy]
+
+deploy:
+  stage: deploy
+  tags: [deploy]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - rsync -az --delete ./ /opt/happy/
+    - cd /opt/happy
+    - docker compose up -d --build --remove-orphans
+    - docker compose ps
